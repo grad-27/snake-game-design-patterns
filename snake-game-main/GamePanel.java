@@ -50,8 +50,11 @@ public class GamePanel extends JPanel implements ActionListener {
     public GamePanel() {
         random = new Random();
         snake = new ArrayList<>();
-        highScoreManager = new HighScoreManager();
         
+        // Singleton: get the one and only instance instead of creating a new one
+        highScoreManager = HighScoreManager.getInstance();
+
+
         setPreferredSize(new Dimension(BOARD_WIDTH, BOARD_HEIGHT + SCORE_PANEL_HEIGHT));
         setBackground(Color.BLACK);
         setFocusable(true);
