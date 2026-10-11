@@ -25,7 +25,11 @@ public class GamePanel extends JPanel implements ActionListener {
     private char direction = 'R'; // R=Right, L=Left, U=Up, D=Down
     
     // Food system
-    private Food currentFood;
+    // Factory change 1: depend on the FoodItem interface for all food types.
+    private FoodItem currentFood;
+
+    // Factory change 2: delegate food creation to one reusable factory.
+    private final FoodFactory foodFactory = new FoodFactory();
     private long lastGoldenFoodTime = 0;
     private long lastBonusFoodTime = 0;
     private static final long GOLDEN_FOOD_INTERVAL = 15000; // Every 15 seconds
@@ -185,7 +189,8 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
         
-        currentFood = new Food(position, type);
+        // Factory change 3: the factory selects and creates the concrete food.
+        currentFood = foodFactory.getFood(type, position);
     }
     
     /**
@@ -395,7 +400,8 @@ public class GamePanel extends JPanel implements ActionListener {
     /**
      * Draw food with effects
      */
-    private void drawFood(Graphics g, Food food) {
+    // Factory change 4: draw any food implementation through FoodItem.
+    private void drawFood(Graphics g, FoodItem food) {
         Point pos = food.getPosition();
         
         // Draw glow effect for special foods
