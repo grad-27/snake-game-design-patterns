@@ -25,7 +25,8 @@ public class GamePanel extends JPanel implements ActionListener {
     private char direction = 'R'; // R=Right, L=Left, U=Up, D=Down
     
     // Food system
-    private Food currentFood;
+    private FoodItem currentFood;
+    private final FoodFactory foodFactory = new FoodFactory();
     private long lastGoldenFoodTime = 0;
     private long lastBonusFoodTime = 0;
     private static final long GOLDEN_FOOD_INTERVAL = 15000; // Every 15 seconds
@@ -51,7 +52,6 @@ public class GamePanel extends JPanel implements ActionListener {
         random = new Random();
         snake = new ArrayList<>();
         
-        // Singleton: get the one and only instance instead of creating a new one
         highScoreManager = HighScoreManager.getInstance();
 
 
@@ -78,7 +78,7 @@ public class GamePanel extends JPanel implements ActionListener {
         direction = 'R';
         score = 0;
         originalDelay = delay;
-        spawnFood(Food.FoodType.NORMAL);
+        spawnFood(FoodType.NORMAL);
         repaint();
     }
     
@@ -101,7 +101,7 @@ public class GamePanel extends JPanel implements ActionListener {
         speedBoostActive = false;
         lastGoldenFoodTime = System.currentTimeMillis();
         lastBonusFoodTime = System.currentTimeMillis();
-        spawnFood(Food.FoodType.NORMAL);
+        spawnFood(FoodType.NORMAL);
         running = true;
         paused = false;
         gameStarted = true; // Mark that game has been started
@@ -172,47 +172,42 @@ public class GamePanel extends JPanel implements ActionListener {
     /**
      * Generate food at random location with specified type
      */
-    public void spawnFood(Food.FoodType type) {
-        int x = random.nextInt(BOARD_WIDTH / UNIT_SIZE) * UNIT_SIZE;
-        int y = random.nextInt(BOARD_HEIGHT / UNIT_SIZE) * UNIT_SIZE;
-        Point position = new Point(x, y);
-        
-        // Make sure food doesn't spawn on snake body
-        for (Point segment : snake) {
-            if (segment.equals(position)) {
-                spawnFood(type); // Recursively find new position
-                return;
-            }
-        }
-        
-        currentFood = new Food(position, type);
+    public void spawnFood(FoodType type) {
+        Point position;
+        do {
+            int x = random.nextInt(BOARD_WIDTH / UNIT_SIZE) * UNIT_SIZE;
+            int y = random.nextInt(BOARD_HEIGHT / UNIT_SIZE) * UNIT_SIZE;
+            position = new Point(x, y);
+        } while (snake.contains(position)); // never spawn on the snake body
+
+        currentFood = foodFactory.getFood(type, position);
     }
     
     /**
      * Determine next food type based on game conditions
      */
-    private Food.FoodType getNextFoodType() {
+    private FoodType getNextFoodType() {
         long currentTime = System.currentTimeMillis();
         
         // Check if it's time for bonus food (highest priority)
         if (currentTime - lastBonusFoodTime >= BONUS_FOOD_INTERVAL) {
             lastBonusFoodTime = currentTime;
-            return Food.FoodType.BONUS;
+            return FoodType.BONUS;
         }
         
         // Check if it's time for golden food
         if (currentTime - lastGoldenFoodTime >= GOLDEN_FOOD_INTERVAL) {
             lastGoldenFoodTime = currentTime;
-            return Food.FoodType.GOLDEN;
+            return FoodType.GOLDEN;
         }
         
         // Random chance for speed boost (10% chance)
         if (random.nextInt(10) == 0) {
-            return Food.FoodType.SPEED;
+            return FoodType.SPEED;
         }
         
         // Default to normal food
-        return Food.FoodType.NORMAL;
+        return FoodType.NORMAL;
     }
     
     /**
@@ -247,16 +242,13 @@ public class GamePanel extends JPanel implements ActionListener {
             score += currentFood.getPoints();
             
             // Apply special effects
-            if (currentFood.hasEffect() && currentFood.getType() == Food.FoodType.SPEED) {
+            if (currentFood.hasEffect()) {
                 activateSpeedBoost();
             }
             
             // Check for new high score
-            if (score > highScoreManager.getHighScore()) {
-                if (!isNewHighScore) {
-                    isNewHighScore = true; // Mark that we achieved a new high score
-                }
-                highScoreManager.updateHighScore(score);
+            if (highScoreManager.updateHighScore(score)) {
+                isNewHighScore = true;
             }
             
             // Spawn next food
@@ -395,11 +387,11 @@ public class GamePanel extends JPanel implements ActionListener {
     /**
      * Draw food with effects
      */
-    private void drawFood(Graphics g, Food food) {
+    private void drawFood(Graphics g, FoodItem food) {
         Point pos = food.getPosition();
         
         // Draw glow effect for special foods
-        if (food.getType() != Food.FoodType.NORMAL) {
+        if (food.hasGlow()) {
             g.setColor(new Color(food.getColor().getRed(), 
                                  food.getColor().getGreen(), 
                                  food.getColor().getBlue(), 50));
@@ -415,7 +407,7 @@ public class GamePanel extends JPanel implements ActionListener {
         g.drawString(food.getEmoji(), pos.x + 3, pos.y + 20);
         
         // Draw timer for bonus food
-        if (food.getType() == Food.FoodType.BONUS) {
+        if (food.isTimed()) {
             long remaining = food.getRemainingTime() / 1000;
             g.setColor(Color.WHITE);
             g.setFont(new Font("Arial", Font.BOLD, 12));
@@ -457,7 +449,7 @@ public class GamePanel extends JPanel implements ActionListener {
         }
         
         // Draw current food description
-        if (currentFood != null && currentFood.getType() != Food.FoodType.NORMAL) {
+        if (currentFood != null && currentFood.hasGlow()) {
             g.setColor(new Color(180, 180, 180));
             g.setFont(new Font("Segoe UI Emoji", Font.ITALIC, 14));
             g.drawString(currentFood.getDescription(), 20, BOARD_HEIGHT + 52);
